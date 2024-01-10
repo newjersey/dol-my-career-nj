@@ -1,7 +1,7 @@
 // fix leak
 describe("Occupation Page", () => {
   it("displays occupation details from ONET", () => {
-    cy.intercept("api/occupations/17-2051").as("getOccupation");
+    cy.intercept("/api/occupations/17-2051").as("getOccupation");
 
     cy.visit("/occupation/17-2051");
 
