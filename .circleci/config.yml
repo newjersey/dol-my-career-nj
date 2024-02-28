@@ -9,10 +9,13 @@ jobs:
             - $DEV_EC2_SSH_FINGERPRINT
       - run:
           name: SSH into EC2
-          command: ssh -o StrictHostKeyChecking=no $DEV_EC2_SSH_HOST << EOF
-                    cd /home/ubuntu/d4ad
-                    git pull
-                  EOF 
+          command: ssh -o StrictHostKeyChecking=no $DEV_EC2_SSH_HOST
+      - run:
+          name: verifying project dir
+          command: cd /home/ubuntu/d4ad
+      - run:
+          name: verifying SSH with pull
+          command: git pull
 
 workflows:
   build-test-deploy:
