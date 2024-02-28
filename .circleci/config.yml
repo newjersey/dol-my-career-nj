@@ -1,8 +1,9 @@
 version: 2.1
 jobs:
   deploy:
-    machine:
-      enabled: true
+    circleci_ip_ranges: true
+    docker:
+      - image: cimg/node:18.16.1-browsers
     steps:
       - add_ssh_keys:
           fingerprints:
@@ -11,11 +12,11 @@ jobs:
           name: SSH into EC2
           command: ssh -o StrictHostKeyChecking=no $DEV_EC2_SSH_HOST
       - run:
-          name: verifying project dir
+          name: verifying SSH with pull
           command: cd /home/ubuntu/d4ad
       - run:
           name: verifying SSH with pull
-          command: git pull
+          command: cd /home/ubuntu/d4ad
 
 workflows:
   build-test-deploy:
