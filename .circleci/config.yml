@@ -51,7 +51,25 @@ jobs:
           root: ~/project
           paths:
             - .
+jobs:
+  deploy:
+    machine:
+      enabled: true
+    steps:
+      - add_ssh_keys:
+          fingerprints:
+            - $DEV_EC2_SSH_FINGERPRINT
+      - run:
+          name: SSH into EC2
+          command: ssh -o StrictHostKeyChecking=no $DEV_EC2_SSH_HOST << EOF
+                    cd /home/ubuntu/d4ad
+                    git pull
+                  EOF 
+                  
 workflows:
   build-test-deploy:
     jobs:
-      - build-and-test
+      - deploy:
+          filters:
+            branches:
+              only: circleCI_Migration
