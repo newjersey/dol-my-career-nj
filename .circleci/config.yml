@@ -1,9 +1,7 @@
 version: 2.1
 jobs:
   deploy:
-    circleci_ip_ranges: true
-    docker:
-      - image: cimg/node:18.16.1-browsers
+    machine: true
     steps:
       - checkout
       - run:
