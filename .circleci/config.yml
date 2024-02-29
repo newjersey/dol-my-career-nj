@@ -1,19 +1,21 @@
 version: 2.1
+
 jobs:
   deploy:
     machine: true
     steps:
-      - checkout
       - run:
           name: Install AWS CLI
-          command: sudo npm install -g aws-cli
-     - run:
+          command: |
+            sudo apt-get update
+            sudo apt-get install -y awscli
+      - run:
           name: Configure AWS CLI
           command: |
             aws configure set aws_access_key_id $AWS_ACCESS_KEY_ID
             aws configure set aws_secret_access_key $AWS_SECRET_ACCESS_KEY
             aws configure set default.region $AWS_REGION
-    - run:
+      - run:
           name: Execute Command on EC2 via SSM
           command: |
             aws ssm send-command --instance-ids $DEV_EC2_INSTANCE_ID \
