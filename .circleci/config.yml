@@ -5,18 +5,24 @@ jobs:
     docker:
       - image: cimg/node:18.16.1-browsers
     steps:
-      - add_ssh_keys:
-          fingerprints:
-            - $DEV_EC2_SSH_FINGERPRINT
+      - checkout
       - run:
-          name: SSH into EC2
-          command: ssh -o StrictHostKeyChecking=no $DEV_EC2_SSH_HOST
-      - run:
-          name: verifying SSH with pull
-          command: cd /home/ubuntu/d4ad
-      - run:
-          name: verifying SSH with pull
-          command: cd /home/ubuntu/d4ad
+          name: Install AWS CLI
+          command: sudo npm install -g aws-cli
+     - run:
+          name: Configure AWS CLI
+          command: |
+            aws configure set aws_access_key_id $AWS_ACCESS_KEY_ID
+            aws configure set aws_secret_access_key $AWS_SECRET_ACCESS_KEY
+            aws configure set default.region $AWS_REGION
+    - run:
+          name: Execute Command on EC2 via SSM
+          command: |
+            aws ssm send-command --instance-ids $DEV_EC2_INSTANCE_ID \
+              --document-name "AWS-RunShellScript" \
+              --parameters 'commands=["cd /home/ubuntu/d4ad && git pull"]' \
+              --region $AWS_REGION \
+              --output text
 
 workflows:
   build-test-deploy:
