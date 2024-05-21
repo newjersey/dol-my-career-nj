@@ -4,12 +4,10 @@ import * as Sentry from "@sentry/node";
 import express, { Request, Response } from "express";
 import path from "path";
 import cors from "cors";
-import AWS from 'aws-sdk';
 import { routerFactory } from "./routes/router";
 import emailSubmissionRouter from './routes/emailRoutes';
 import contentfulRouter from './contentful/index';
 import { PostgresDataClient } from "./database/data/PostgresDataClient";
-import { PostgresSearchClient } from "./database/search/PostgresSearchClient";
 import { findTrainingsByFactory } from "./domain/training/findTrainingsBy";
 import { searchTrainingsFactory } from "./domain/search/searchTrainings";
 import { getInDemandOccupationsFactory } from "./domain/occupations/getInDemandOccupations";
@@ -18,6 +16,7 @@ import { OnetClient } from "./oNET/OnetClient";
 import { getEducationTextFactory } from "./domain/occupations/getEducationText";
 import { getSalaryEstimateFactory } from "./domain/occupations/getSalaryEstimate";
 import { CareerOneStopClient } from "./careeronestop/CareerOneStopClient";
+import { credentialEngineFactory } from "./domain/credentialengine/CredentialEngineFactory";
 import {getOccupationDetailByCIPFactory} from "./domain/occupations/getOccupationDetailByCIP";
 
 dotenv.config();
@@ -50,7 +49,7 @@ process.on("unhandledRejection", (reason) => {
 
 // CORS options
 const corsOptions = {
-  origin: ['https://mycareer.nj.gov', 'http://localhost:3000'],
+  origin: ['https://mycareer.nj.gov', 'http://localhost:3000', 'https://d4ad-research2.appspot.com/'],
   methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
   allowedHeaders: ['Content-Type', 'Authorization'],
   optionsSuccessStatus: 200
@@ -64,11 +63,7 @@ app.use(Sentry.Handlers.requestHandler());
 app.use(Sentry.Handlers.tracingHandler());
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-const awsConfig = new AWS.Config({
-  accessKeyId: process.env.AWS_ACCESS_KEY_ID || undefined,
-  secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || undefined,
-  region: process.env.AWS_REGION
-});
+
 
 type PostgresConnectionConfig = {
   user: string,
@@ -80,7 +75,7 @@ type PostgresConnectionConfig = {
 
 // Determine if the NODE_ENV begins with "aws"
 let connection: PostgresConnectionConfig | null = null;
-
+console.log(`starting application in ${process.env.NODE_ENV} environment`)
 switch (process.env.NODE_ENV) {
   case "dev":
     connection = {
@@ -127,6 +122,15 @@ switch (process.env.NODE_ENV) {
       port: 5432,
     };
     break;
+  case "gcp":
+    connection = {
+      user: process.env.DB_USER || 'postgres',
+      host: process.env.CLOUD_SQL_CONNECTION_NAME ? `/cloudsql/${process.env.CLOUD_SQL_CONNECTION_NAME}` : 'localhost',
+      database: process.env.DB_NAME || 'd4adlocal',
+      password: process.env.DB_PASS || '',
+      port: 5432,
+    };
+    break;
   default:
     console.error("Invalid NODE_ENV. Please set NODE_ENV to one of: dev, test, awsdev, awstest, awsprod.");
     process.exit(1);
@@ -160,11 +164,10 @@ if (!isCI) {
 }
 
 const postgresDataClient = new PostgresDataClient(connection);
-const postgresSearchClient = new PostgresSearchClient(connection);
 const findTrainingsBy = findTrainingsByFactory(postgresDataClient);
 
 const router = routerFactory({
-  searchTrainings: searchTrainingsFactory(findTrainingsBy, postgresSearchClient),
+  searchTrainings: searchTrainingsFactory(postgresDataClient),
   findTrainingsBy: findTrainingsBy,
   getInDemandOccupations: getInDemandOccupationsFactory(postgresDataClient),
   getOccupationDetail: getOccupationDetailFactory(
@@ -180,9 +183,9 @@ const router = routerFactory({
           apiValues.careerOneStopUserId,
           apiValues.careerOneStopAuthToken
       ),
-      findTrainingsBy,
       postgresDataClient
   ),
+  getAllCertificates: credentialEngineFactory(),
   getOccupationDetailByCIP: getOccupationDetailByCIPFactory(
       OnetClient(
           apiValues.onetBaseUrl,
@@ -203,7 +206,6 @@ const router = routerFactory({
 
 app.use(express.static(path.join(__dirname, "build"), { etag: false, lastModified: false }));
 app.use(express.json());
-
 app.use("/api", router);
 app.use('/api/emails', emailSubmissionRouter);
 app.use('/api/contentful', contentfulRouter);
