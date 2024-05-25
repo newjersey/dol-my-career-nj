@@ -69,115 +69,128 @@ export const TrainingExplorerPage = (props: Props): ReactElement => {
   return (
     <>
       {data && (
-        <Layout
-          client={props.client}
-          seo={seoObject}
-          footerComponent={
-            <div className="cta-collection">
-              <CtaBanner
-                heading="Don’t see your question? Go to our FAQ page."
-                noIndicator
-                inlineButtons
-                links={[
-                  {
-                    sys: {
-                      id: "SeeallFAQs",
-                    },
-                    copy: "See all FAQs",
-                    url: "/faq",
-                    iconSuffix: "ArrowRight" as IconNames,
-                  },
-                ]}
-                theme="blue"
-              />
-              <CtaBanner
-                heading={pageData?.footerCtaHeading}
-                inlineButtons
-                noIndicator
-                links={pageData?.footerCtaLinkCollection.items}
-                theme="blue"
-              />
-            </div>
-          }
-        >
-          <PageBanner {...pageData?.pageBanner} theme="green" />
-          <section>
-            <div className="container">
-              <div id="how-to-steps-section">
-                <div className="sectionHeading">
-                  <h2 className="heading-tag">{t("TrainingPage.trainingProviderStepsHeader")}:</h2>
+          <Layout
+              client={props.client}
+              seo={seoObject}
+              footerComponent={
+                <div className="cta-collection">
+                  <CtaBanner
+                      heading="Don’t see your question? Go to our FAQ page."
+                      noIndicator
+                      inlineButtons
+                      links={[
+                        {
+                          sys: {
+                            id: "SeeallFAQs",
+                          },
+                          copy: "See all FAQs",
+                          url: "/faq",
+                          iconSuffix: "ArrowRight" as IconNames,
+                        },
+                      ]}
+                      theme="blue"
+                  />
+                  <CtaBanner
+                      heading={pageData?.footerCtaHeading}
+                      inlineButtons
+                      noIndicator
+                      links={pageData?.footerCtaLinkCollection.items}
+                      theme="blue"
+                  />
                 </div>
-                <div>
-                  <ul>
-                    <li>
-                      <div className="list-num-container">
-                        <div className="list-num">
-                          1
+              }
+          >
+            <script type="application/ld+json">
+              {`{
+            "@context": "http://schema.org",
+            "@type": "WebSite",
+            "name": "My Career NJ",
+            "url": "https://mycareer.nj.gov/",
+            "potentialAction": {
+              "@type": "SearchAction",
+              "target": "https://mycareer.nj.gov/training/search?q={search_term_string}",
+              "query-input": "required name=search_term_string"
+            }
+          }`}
+            </script>
+            <PageBanner {...pageData?.pageBanner} theme="green"/>
+            <section>
+              <div className="container">
+                <div id="how-to-steps-section">
+                  <div className="sectionHeading">
+                    <h2 className="heading-tag">{t("TrainingPage.trainingProviderStepsHeader")}:</h2>
+                  </div>
+                  <div>
+                    <ul>
+                      <li>
+                        <div className="list-num-container">
+                          <div className="list-num">
+                            1
+                          </div>
                         </div>
-                      </div>
-                      <div className="list-info">
-                        <h3>
-                          {t("TrainingPage.trainingStepOne")}
-                        </h3>
-                        <div>
-                          {t("TrainingPage.trainingStepOneDescription")}
+                        <div className="list-info">
+                          <h3>
+                            {t("TrainingPage.trainingStepOne")}
+                          </h3>
+                          <div>
+                            {t("TrainingPage.trainingStepOneDescription")}
+                          </div>
                         </div>
-                      </div>
-                    </li>
-                    <li>
-                      <div className="list-num-container">
-                        <div className="list-num">
-                          2
+                      </li>
+                      <li>
+                        <div className="list-num-container">
+                          <div className="list-num">
+                            2
+                          </div>
                         </div>
-                      </div>
-                      <div className="list-info">
-                        <h3>
-                          {t("TrainingPage.trainingStepTwo")}
-                        </h3>
-                        <div>
-                          {t("TrainingPage.trainingStepTwoDescriptionP1")}<a href="/training-provider-resources#etpl
+                        <div className="list-info">
+                          <h3>
+                            {t("TrainingPage.trainingStepTwo")}
+                          </h3>
+                          <div>
+                            {t("TrainingPage.trainingStepTwoDescriptionP1")}<a href="/training-provider-resources#etpl
   ">{t("TrainingPage.trainingStepTwoDescriptionP2")}</a>{t("TrainingPage.trainingStepTwoDescriptionP3")}
+                          </div>
                         </div>
-                      </div>
-                    </li>
-                    <li>
-                      <div className="list-num-container">
-                        <div className="list-num">
-                          3
+                      </li>
+                      <li>
+                        <div className="list-num-container">
+                          <div className="list-num">
+                            3
+                          </div>
                         </div>
-                      </div>
-                      <div className="list-info">
-                        <h3>
-                          {t("TrainingPage.trainingStepThree")}
-                        </h3>
-                        <div>
-                          {t("TrainingPage.trainingStepThreeDescription")}
+                        <div className="list-info">
+                          <h3>
+                            {t("TrainingPage.trainingStepThree")}
+                          </h3>
+                          <div>
+                            {t("TrainingPage.trainingStepThreeDescription")}
+                          </div>
                         </div>
-                      </div>
-                    </li>
-                  </ul>
+                      </li>
+                    </ul>
+                  </div>
                 </div>
               </div>
-            </div>
-            <SearchBlock drawerContent={pageData.drawerContent} />
-          </section>
-          <HowTo {...howToContent} />
-          <Interrupter {...interrupterContent} />
-          <section className="landing-faq">
-            <div className="container">
-              <SectionHeading heading="Frequently Asked Questions" headingLevel={3} />
+              <SearchBlock drawerContent={pageData.drawerContent}/>
+            </section>
+            <HowTo {...howToContent} />
+            <Interrupter {...interrupterContent} />
+            <section className="landing-faq">
+              <div className="container">
+                <SectionHeading heading="Frequently Asked Questions" headingLevel={3}/>
 
-              {pageData?.faqsCollection.items.map((item, index: number) => (
-                <Accordion
-                  keyValue={index}
-                  content={item.answer.json}
-                  title={item.question}
-                  key={item.sys?.id}
-                />
-              ))}
-            </div>
-          </section>
-        </Layout>
+                {pageData?.faqsCollection.items.map((item, index: number) => (
+                    <Accordion
+                        keyValue={index}
+                        content={item.answer.json}
+                        title={item.question}
+                        key={item.sys?.id}
+                    />
+                ))}
+              </div>
+            </section>
+          </Layout>
       )}
     </>
   );
