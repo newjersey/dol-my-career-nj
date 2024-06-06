@@ -51,7 +51,35 @@ jobs:
           root: ~/project
           paths:
             - .
+  deploy_dev:
+    circleci_ip_ranges: true
+    docker:
+      - image: circleci/python:3.8
+    steps:
+      - run:
+          name: Install SSH
+          command: sudo apt-get install -y openssh-client
+      - add_ssh_keys:
+          fingerprints:
+            - "SHA256:UkBaGthILXKNTD7u0bbWle4fJwGE3thGwtiC3huxLAw"
+      - run:
+          name: SSH into EC2 and Deploy
+          command: |
+            ssh -o StrictHostKeyChecking=no $EC2_USERNAME@$EC2_IP \
+              "cd d4ad && \
+              git pull origin master && \
+              ./scripts/install-all.sh && \
+              ./scripts/db-migrate.sh && \
+              rm -rf backend/dist/ && \
+              ./scripts/build.sh"
 workflows:
   build-test-deploy:
     jobs:
       - build-and-test
+      - deploy_dev:
+          requires:
+            - build-and-test
+          filters:
+            branches:
+              only:
+                - master
