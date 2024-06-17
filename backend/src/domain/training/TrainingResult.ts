@@ -11,7 +11,7 @@ export interface TrainingResult {
   totalClockHours?: number | null;
   inDemand?: boolean;
   localExceptionCounty?: string[];
-  online?: boolean;
+  online?: object[] | undefined;
   providerId?: string | null;
   providerName?: string;
   cities?: (string | undefined)[];
@@ -20,7 +20,7 @@ export interface TrainingResult {
   rank?: number;
   socCodes?: string[];
   hasEveningCourses?: boolean;
-  languages?: string | null;
+  languages?: string[];
   isWheelchairAccessible?: boolean;
   hasJobPlacementAssistance?: boolean;
   hasChildcareAssistance?: boolean;

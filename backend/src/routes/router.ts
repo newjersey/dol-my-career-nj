@@ -63,7 +63,20 @@ export const routerFactory = ({
       limit = 10;
     }
     
-    searchTrainings({searchQuery: req.query.query as string, page: page, limit: limit, sort: req.query.sort as string})
+    searchTrainings({
+      searchQuery: req.query.query as string,
+      page: page,
+      limit: limit,
+      sort: req.query.sort as string,
+      cipCode: req.query.cipCode as string,
+      completeIn: req.query.completeIn ? (req.query.completeIn as string).split(",").map((v) => parseInt(v)) : undefined,
+      county: req.query.county as string,
+      inDemand: req.query.inDemand === "true",
+      languages: req.query.languages ? (req.query.languages as string).split(",") : undefined,
+      maxCost: parseInt(req.query.maxCost as string),
+      miles: parseInt(req.query.miles as string),
+      zipcode: req.query.zipcode as string,
+    })
       .then((trainings: TrainingData) => {
         res.status(200).json(trainings);
       })

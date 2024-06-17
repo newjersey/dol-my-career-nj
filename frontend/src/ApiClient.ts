@@ -19,12 +19,29 @@ export class ApiClient implements Client {
     observer: Observer<TrainingData>,
     page?: number,
     limit?: number | undefined,
-    sort?: "asc" | "desc" | "price_asc" | "price_desc" | "EMPLOYMENT_RATE" | "best_match",
+    sort?: "asc" | "desc" | "price_asc" | "price_desc" | "EMPLOYMENT_RATE" | "best_match" | undefined,
+    cipCode?: string | undefined,
+    completeIn?: number[] | undefined,
+    county?: string | undefined,
+    inDemand?: string | undefined,
+    languages?: string[] | undefined,
+    maxCost?: number | undefined,
+    miles?: number | undefined,
+    socCode?: string | undefined,
+    zipcode?: string | undefined,
   ): void {
-    this.get(
-      `/api/trainings/search?query=${query}&page=${page}&limit=${limit}&sort=${sort}`,
-      observer,
-    );
+    const completeInValue = completeIn && completeIn.length > 0 ? `&completeIn=${completeIn.join(",")}` : '';
+    const countyValue = county ? `&county=${county}` : '';
+    const inDemanValue = inDemand && inDemand === "true" ? "&inDemand=true" : "";
+    const languagesValue = languages && languages.length > 0 ? `&languages=${languages.join(",")}` : '';
+    const maxCostValue = maxCost && maxCost > 0 ? `&maxCost=${maxCost}` : '';
+    const zipcodeAndMiles = miles && miles > 0 && zipcode ? `&miles=${miles}&zipcode=${zipcode}` : '';
+
+    const url = `/api/trainings/search?query=${query}&page=${page}&limit=${limit}&sort=${sort ? sort : 'best_match'}${zipcodeAndMiles}${maxCostValue}${countyValue}${inDemanValue}${completeInValue}${languagesValue}${cipCode ? `&cipCode=${cipCode}` : ''}${socCode ? `&socCode=${socCode}` : ''}`;
+
+    console.log(url)
+
+    this.get(url, observer);
   }
 
   getTrainingById(id: string, observer: Observer<Training>): void {
