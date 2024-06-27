@@ -323,6 +323,7 @@ export const es = {
     suppliesCostLabel: "Suministros y herramientas",
     otherCostLabel: "Otro",
     providerGroupHeader: "Detalles del proveedor",
+    locationGroupHeader: "Detalles de ubicación",
     onlineClass: "Clase en línea",
     providerServicesGroupHeader: "Servicios del proveedor",
     eveningCoursesServiceLabel: "Este proveedor ofrece cursos nocturnos.",

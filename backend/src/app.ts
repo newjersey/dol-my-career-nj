@@ -10,7 +10,6 @@ import emailSubmissionRouter from './routes/emailRoutes';
 import contentfulRouter from './contentful/index';
 import contactRouter from './routes/contactRoutes'
 import { PostgresDataClient } from "./database/data/PostgresDataClient";
-import { PostgresSearchClient } from "./database/search/PostgresSearchClient";
 import { findTrainingsByFactory } from "./domain/training/findTrainingsBy";
 import { searchTrainingsFactory } from "./domain/search/searchTrainings";
 import { getInDemandOccupationsFactory } from "./domain/occupations/getInDemandOccupations";
@@ -19,6 +18,7 @@ import { OnetClient } from "./oNET/OnetClient";
 import { getEducationTextFactory } from "./domain/occupations/getEducationText";
 import { getSalaryEstimateFactory } from "./domain/occupations/getSalaryEstimate";
 import { CareerOneStopClient } from "./careeronestop/CareerOneStopClient";
+import { credentialEngineFactory } from "./domain/credentialengine/CredentialEngineFactory";
 import {getOccupationDetailByCIPFactory} from "./domain/occupations/getOccupationDetailByCIP";
 // import { rateLimiter } from "./utils/rateLimiter";
 
@@ -166,11 +166,10 @@ if (!isCI) {
 }
 
 const postgresDataClient = new PostgresDataClient(connection);
-const postgresSearchClient = new PostgresSearchClient(connection);
 const findTrainingsBy = findTrainingsByFactory(postgresDataClient);
 
 const router = routerFactory({
-  searchTrainings: searchTrainingsFactory(findTrainingsBy, postgresSearchClient),
+  searchTrainings: searchTrainingsFactory(postgresDataClient),
   findTrainingsBy: findTrainingsBy,
   getInDemandOccupations: getInDemandOccupationsFactory(postgresDataClient),
   getOccupationDetail: getOccupationDetailFactory(
@@ -186,9 +185,9 @@ const router = routerFactory({
           apiValues.careerOneStopUserId,
           apiValues.careerOneStopAuthToken
       ),
-      findTrainingsBy,
       postgresDataClient
   ),
+  getAllCertificates: credentialEngineFactory(),
   getOccupationDetailByCIP: getOccupationDetailByCIPFactory(
       OnetClient(
           apiValues.onetBaseUrl,

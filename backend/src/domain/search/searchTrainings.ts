@@ -1,71 +1,201 @@
-import { stripUnicode } from "../utils/stripUnicode";
-import { FindTrainingsBy, SearchTrainings } from "../types";
-import { TrainingResult } from "../training/TrainingResult";
-import { Training } from "../training/Training";
-import { SearchClient } from "./SearchClient";
-import { Selector } from "../training/Selector";
+import NodeCache = require("node-cache");
 import * as Sentry from "@sentry/node";
+import { SearchTrainings,  } from "../types";
+import { credentialEngineAPI } from "../../credentialengine/CredentialEngineAPI";
+import { credentialEngineUtils } from "../../credentialengine/CredentialEngineUtils";
+import { CTDLResource } from "../credentialengine/CredentialEngine";
+import { getLocalExceptionCounties } from "../utils/getLocalExceptionCounties";
+import { DataClient } from "../DataClient";
+import { getHighlight } from "../utils/getHighlight";
+import {TrainingData, TrainingResult} from "../training/TrainingResult";
+import zipcodeJson from "../utils/zip-county.json";
+import zipcodes from "zipcodes";
 
-export const searchTrainingsFactory = (
-  findTrainingsBy: FindTrainingsBy,
-  searchClient: SearchClient,
-): SearchTrainings => {
-  return async (searchQuery: string): Promise<TrainingResult[]> => {
-    try {
-      const searchResults = await searchClient.search(searchQuery);
-      const trainings = await findTrainingsBy(
-        Selector.ID,
-        searchResults.map((it) => it.id),
-      );
+// Ensure TrainingData is exported in ../types
+// types.ts:
+// export interface TrainingData { ... }
 
-      return await Promise.all(
-        trainings.map(async (training: Training) => {
-          let highlight = "";
-          let rank = 0;
+// Initializing a simple in-memory cache
+const cache = new NodeCache({ stdTTL: 300, checkperiod: 120 });
 
-          if (searchQuery) {
-            highlight = await searchClient.getHighlight(training.id, searchQuery);
-          }
+export const searchTrainingsFactory = (dataClient: DataClient): SearchTrainings => {
+  return async (params: { searchQuery: string, page?: number, limit?: number, sort?: string }): Promise<TrainingData> => {
+    const { page, limit, sort, cacheKey } = prepareSearchParameters(params);
 
-          if (searchResults) {
-            const foundRank = searchResults.find((it) => it.id === training.id)?.rank;
-            if (foundRank) {
-              rank = foundRank;
-            }
-          }
-
-          const result = {
-            id: training.id,
-            name: training.name,
-            cipCode: training.cipCode,
-            totalCost: training.totalCost,
-            percentEmployed: training.percentEmployed,
-            calendarLength: training.calendarLength,
-            totalClockHours: training.totalClockHours,
-            localExceptionCounty: training.localExceptionCounty,
-            online: training.online,
-            providerId: training.provider.id,
-            providerName: training.provider.name,
-            city: training.provider.address.city,
-            zipCode: training.provider.address.zipCode,
-            county: training.provider.county,
-            inDemand: training.inDemand,
-            highlight: stripUnicode(highlight),
-            rank: rank,
-            socCodes: training.occupations.map((o) => o.soc),
-            hasEveningCourses: training.hasEveningCourses,
-            languages: training.languages,
-            isWheelchairAccessible: training.isWheelchairAccessible,
-            hasJobPlacementAssistance: training.hasJobPlacementAssistance,
-            hasChildcareAssistance: training.hasChildcareAssistance,
-          };
-          return result;
-        }),
-      );
-    } catch (error) {
-      console.error(`Failed to search for trainings with the query: ${searchQuery}`, error);
-      Sentry.captureException(error);
-      throw error;
+    const cachedResults = cache.get<TrainingData>(cacheKey);
+    if (cachedResults) {
+      console.log("Returning cached results for key:", cacheKey);
+      return cachedResults;
     }
+
+    const query = buildQuery(params);
+    console.log("Executing search with query:", JSON.stringify(query));
+
+    let ceRecordsResponse;
+    try {
+      ceRecordsResponse = await credentialEngineAPI.getResults(query, (page - 1) * limit, limit, sort);
+    } catch (error) {
+      Sentry.captureException(error);
+      console.error("Error fetching results from Credential Engine API:", error);
+      throw new Error("Failed to fetch results from Credential Engine API.");
+    }
+
+    const certificates = ceRecordsResponse.data.data as CTDLResource[];
+    const results = await Promise.all(certificates.map(certificate => transformCertificateToTraining(dataClient, certificate, params.searchQuery)));
+
+    const totalResults = ceRecordsResponse.data.extra.TotalResults;
+
+    const data = packageResults(page, limit, results, totalResults);
+
+    const dataJSON = JSON.stringify(data);
+    console.log(dataJSON);
+
+    cache.set(cacheKey, data);
+    return data;
   };
+};
+
+function prepareSearchParameters(params: { searchQuery: string, page?: number, limit?: number, sort?: string }) {
+  const page = params.page || 1;
+  const limit = params.limit || 10;
+
+  const sort = determineSortOption(params.sort);
+  const cacheKey = `searchQuery-${params.searchQuery}-${page}-${limit}-${sort}`;
+
+  return { page, limit, sort, cacheKey };
+}
+
+function determineSortOption(sortOption?: string) {
+  switch (sortOption) {
+    case "asc": return "ceterms:name";
+    case "desc": return "^ceterms:name";
+    case "price_asc":
+    case "price_desc":
+    case "EMPLOYMENT_RATE": return sortOption;
+    case "best_match":
+    default: return "^search:relevance";
+  }
+}
+
+function buildQuery(params: { searchQuery: string }) {
+  const isSOC = /^\d{2}-?\d{4}(\.00)?$/.test(params.searchQuery);
+  const isCIP = /^\d{2}\.?\d{4}$/.test(params.searchQuery);
+  const isZipCode = zipcodes.lookup(params.searchQuery);
+  const isCounty = Object.keys(zipcodeJson.byCounty).includes(params.searchQuery);
+
+  let zipcodesList: unknown[] = []
+
+  if (isZipCode) {
+    zipcodesList = [params.searchQuery]
+  } else if (isCounty) {
+    zipcodesList = zipcodeJson.byCounty[params.searchQuery as keyof typeof zipcodeJson.byCounty]
+  }
+
+  return {
+    "@type": {
+      "search:value": "ceterms:Credential",
+      "search:matchType": "search:subClassOf",
+    },
+    "search:termGroup": {
+      "search:operator": "search:andTerms",
+      "search:value": [
+        {
+          "search:operator": "search:orTerms",
+          ...(isSOC || isCIP || !!isZipCode || isCounty ? {} : {
+            "ceterms:name": params.searchQuery,
+            "ceterms:description": params.searchQuery,
+            "ceterms:ownedBy": { "ceterms:name": { "search:value": params.searchQuery, "search:matchType": "search:contains" } }
+          }),
+          "ceterms:occupationType": isSOC ? {
+            "ceterms:codedNotation": { "search:value": params.searchQuery, "search:matchType": "search:startsWith" }
+          } : undefined,
+          "ceterms:instructionalProgramType": isCIP ? {
+            "ceterms:codedNotation": { "search:value": params.searchQuery, "search:matchType": "search:startsWith" }
+          } : undefined
+        },{
+          "ceterms:availableAt": {
+            "ceterms:postalCode": zipcodesList
+          }
+        },
+        {
+          "search:operator": "search:andTerms",
+          "ceterms:credentialStatusType": {
+            "ceterms:targetNode": "credentialStat:Active",
+          },
+          "search:recordPublishedBy": "ce-cc992a07-6e17-42e5-8ed1-5b016e743e9d",
+        },
+      ],
+    },
+  };
+}
+
+async function transformCertificateToTraining(dataClient: DataClient, certificate: CTDLResource, searchQuery: string): Promise<TrainingResult> {
+  try {
+    const desc = certificate["ceterms:description"] ? certificate["ceterms:description"]["en-US"] : null;
+    const highlight = desc ? await getHighlight(desc, searchQuery) : "";
+
+    const provider = await credentialEngineUtils.getProviderData(certificate);
+
+    const cipCode = await credentialEngineUtils.extractCipCode(certificate);
+    const cipDefinition = await dataClient.findCipDefinitionByCip(cipCode);
+
+    const outcomesDefinition = await dataClient.findOutcomeDefinition(cipCode, provider.providerId);
+
+    return {
+      ctid: certificate["ceterms:ctid"] || "",
+      name: certificate["ceterms:name"]?.["en-US"] || "",
+      cipDefinition: cipDefinition ? cipDefinition[0] : null,
+      totalCost: await credentialEngineUtils.extractCost(certificate, "costType:AggregateCost"),
+      // percentEmployed: await credentialEngineUtils.extractEmploymentData(certificate),d
+      percentEmployed:outcomesDefinition ? formatPercentEmployed(outcomesDefinition.peremployed2) : null,
+      calendarLength: await credentialEngineUtils.getCalendarLengthId(certificate),
+      localExceptionCounty: await getLocalExceptionCounties(dataClient, cipCode),
+      online: certificate["ceterms:availableOnlineAt"] != null,
+      providerId: provider.providerId,
+      providerName: provider.name,
+      availableAt: await credentialEngineUtils.getAvailableAtAddresses(certificate),
+      inDemand: (await dataClient.getCIPsInDemand()).map((c) => c.cipcode).includes(cipCode ?? ""),
+      highlight: highlight,
+      socCodes: [],
+      hasEveningCourses: await credentialEngineUtils.hasEveningSchedule(certificate),
+      languages: "",
+      isWheelchairAccessible: await credentialEngineUtils.checkAccommodation(certificate, "accommodation:PhysicalAccessibility"),
+      hasJobPlacementAssistance: await credentialEngineUtils.checkSupportService(certificate, "support:JobPlacement"),
+      hasChildcareAssistance: await credentialEngineUtils.checkSupportService(certificate, "support:Childcare"),
+      totalClockHours: null,
+    };
+  } catch (error) {
+    console.error("Error transforming certificate to training:", error);
+    throw error;
+  }
+}
+
+function packageResults(page: number, limit: number, results: TrainingResult[], totalResults: number): TrainingData {
+  const totalPages = Math.ceil(totalResults / limit);
+  const hasPreviousPage = page > 1;
+  const hasNextPage = page < totalPages;
+
+  return {
+    data: results,
+    meta: {
+      currentPage: page,
+      totalPages,
+      totalItems: totalResults,
+      itemsPerPage: limit,
+      hasNextPage,
+      hasPreviousPage,
+      nextPage: hasNextPage ? page + 1 : null,
+      previousPage: hasPreviousPage ? page - 1 : null,
+    },
+  };
+}
+
+const NAN_INDICATOR = "-99999";
+
+const formatPercentEmployed = (perEmployed: string | null): number | null => {
+  if (perEmployed === null || perEmployed === NAN_INDICATOR) {
+    return null;
+  }
+
+  return parseFloat(perEmployed);
 };
